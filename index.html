@@ -199,6 +199,15 @@ img{max-width:100%}
 /* ---------- Divers ---------- */
 .empty{text-align:center;color:var(--muted);padding:40px 20px;font-size:13.5px;line-height:1.5}
 
+/* ---------- Bandeau d'installation ---------- */
+.install-card{position:relative;display:flex;align-items:center;gap:12px;background:var(--green-soft);border:1px solid #CFE2D5;border-radius:14px;padding:12px 34px 12px 12px;margin:-6px 0 16px}
+.install-card .inst-ic{width:38px;height:38px;border-radius:11px;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.install-card .inst-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.install-card .inst-txt b{font-size:13.5px;color:var(--green-dark)}
+.install-card .inst-txt span{font-size:11.5px;color:var(--muted);line-height:1.35}
+.install-card button{background:var(--green);color:#fff;font-weight:700;font-size:12.5px;padding:9px 13px;border-radius:10px;flex-shrink:0}
+.install-card .inst-x{position:absolute;top:6px;right:9px;font-size:12px;color:var(--muted);cursor:pointer;padding:2px 4px}
+
 </style>
 </head>
 <body>
@@ -271,6 +280,8 @@ const SVGICONS = {
  pomme_terre:svg(`<ellipse cx="24" cy="25" rx="17" ry="13" fill="#D9A968"/><circle cx="17" cy="22" r="1.6" fill="#B78A4E"/><circle cx="29" cy="29" r="1.6" fill="#B78A4E"/><circle cx="30" cy="18" r="1.6" fill="#B78A4E"/>`),
  clock:svg(`<circle cx="24" cy="24" r="19" fill="none" stroke="currentColor" stroke-width="4"/><path d="M24 13 V24 L32 29" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`),
  bulb:svg(`<path d="M24 5 C32 5 38 11 38 19 C38 25 34 28 32 32 H16 C14 28 10 25 10 19 C10 11 16 5 24 5 Z" fill="#F0D95A"/><rect x="18" y="34" width="12" height="4" rx="2" fill="#B9B29A"/><rect x="19" y="39" width="10" height="4" rx="2" fill="#B9B29A"/>`),
+ download:svg(`<path d="M24 6 V30 M14 21 L24 31 L34 21" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 34 V40 H40 V34" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`),
+ share:svg(`<path d="M24 28 V6 M15 14 L24 5 L33 14" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 22 H10 V42 H38 V22 H32" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>`),
  plusmini:svg(`<rect x="20" y="8" width="8" height="32" rx="3" fill="currentColor"/><rect x="8" y="20" width="32" height="8" rx="3" fill="currentColor"/>`),
  forkknife:svg(`<path d="M13 4 V20 M17 4 V20 M13 20 C13 24 17 24 17 20 M15 24 V44" stroke="#fff" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M33 4 C27 8 27 18 33 22 V44" stroke="#fff" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`),
  cupcake:svg(`<path d="M10 22 H38 L34 40 H14 Z" fill="#fff" opacity=".92"/><path d="M8 22 C8 12 40 12 40 22 Z" fill="#fff"/><circle cx="24" cy="9" r="3" fill="#fff"/>`),
@@ -435,6 +446,7 @@ function screenAccueil(){
  const suggestions=hasIngredients?suggestionsFor():[];
  return `<div class="accueil">
   <div class="brand-row"><div class="mark">${iconSvg('fridge',22)}</div><div class="wordmark">Frigo<span>Chef</span></div></div>
+  ${installBannerHTML()}
   <p class="sub">Notez vos ingrédients, parcourez les recettes juste en dessous.</p>
   <div class="quickbar">
    ${iconSvg('search',18)}
@@ -626,6 +638,44 @@ function renderScreen(){
  }
  root.innerHTML = `<div id="phone" style="${showNav?"":"padding-bottom:24px"}">${html}${showNav?navbarHTML():""}</div>`;
 }
+/* ====== Installation de l'appli (bouton Android / aide iPhone / navigateur TikTok) ====== */
+let deferredInstallPrompt=null;
+function installDismissed(){try{return localStorage.getItem("fc_install_dismissed")==="1"}catch(e){return false}}
+function isStandalone(){
+ return (window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches)||window.navigator.standalone===true||(document.referrer||"").startsWith("android-app://");
+}
+function isInAppBrowser(){return /musical_ly|tiktok|bytedancewebview|trill|instagram|fban|fbav/i.test(navigator.userAgent||"")}
+function isIOS(){const ua=navigator.userAgent||"";return /iphone|ipad|ipod/i.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1)}
+function installMode(){
+ if(isStandalone()||installDismissed())return null;
+ if(isInAppBrowser())return "inapp";
+ if(isIOS())return "ios";
+ if(deferredInstallPrompt)return "prompt";
+ return null;
+}
+function installBannerHTML(){
+ const m=installMode();
+ if(!m)return "";
+ const close=`<span class="inst-x" onclick="dismissInstall()" aria-label="Fermer">✕</span>`;
+ if(m==="prompt")return `<div class="install-card"><div class="inst-ic">${iconSvg('download',20)}</div><div class="inst-txt"><b>Installer FrigoChef</b><span>Ajoute l'appli à ton écran d'accueil, elle marche même sans connexion.</span></div><button onclick="doInstall()">Installer</button>${close}</div>`;
+ if(m==="ios")return `<div class="install-card"><div class="inst-ic">${iconSvg('share',20)}</div><div class="inst-txt"><b>Installer FrigoChef</b><span>Touche le bouton Partager de Safari, puis « Sur l'écran d'accueil ».</span></div>${close}</div>`;
+ return `<div class="install-card"><div class="inst-ic">${iconSvg('download',20)}</div><div class="inst-txt"><b>Installer FrigoChef</b><span>Ouvre cette page dans Chrome ou Safari (menu ⋯ puis « Ouvrir dans le navigateur »), puis ajoute-la à l'écran d'accueil.</span></div>${close}</div>`;
+}
+function dismissInstall(){try{localStorage.setItem("fc_install_dismissed","1")}catch(e){}renderScreen()}
+function doInstall(){
+ if(!deferredInstallPrompt)return;
+ const p=deferredInstallPrompt;
+ p.prompt();
+ Promise.resolve(p.userChoice).then(()=>{deferredInstallPrompt=null;renderScreen()}).catch(()=>{deferredInstallPrompt=null;renderScreen()});
+}
+window.addEventListener("beforeinstallprompt",e=>{
+ e.preventDefault();
+ deferredInstallPrompt=e;
+ const a=document.activeElement;
+ if(state.screen==="accueil"&&!(a&&a.id==="quickIng"))renderScreen();
+});
+window.addEventListener("appinstalled",()=>{deferredInstallPrompt=null;renderScreen()});
+
 renderScreen();
 if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}
 
